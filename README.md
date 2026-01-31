@@ -1,20 +1,51 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# 封禁数据处理中心 Pro (Ban Data Processor Pro)
 
-# Run and deploy your AI Studio app
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![React](https://img.shields.io/badge/React-19-61dafb.svg)
+![PureFrontend](https://img.shields.io/badge/Deployment-Pure_Frontend-emerald.svg)
 
-This contains everything you need to run your app locally.
+## 📖 项目简介
+本项目是一款专为游戏运营、社区管理设计的**高性能封禁名单处理工具**。它能够快速整合多个格式杂乱的 TXT 封禁日志，自动去重，并生成符合多国社交媒体排版要求的处罚公告。
 
-View your app in AI Studio: https://ai.studio/apps/drive/1YIha5Qa9IrFGdy-zQe7btJVQAS4BdMgu
+**特别针对东南亚市场优化**：内置泰语佛历换算、多语言原因词典对照及视觉对齐算法。
 
-## Run Locally
+## ✨ 核心特性
+- **🚀 零服务端依赖**：所有数据解析、去重、换算均在本地浏览器完成，不上传服务器，保护数据隐私。
+- **🔍 智能去重**：支持多文件同时上传，自动识别重复 UID，并智能保留处罚最重（时长最长）的一条记录。
+- **🌍 国际化公告生成**：
+  - **多语言模板**：一键切换 TH (泰语)、TW (繁体)、VN (越南语)、EN (英语)。
+  - **佛历转换**：泰语公告自动将日期转换为佛历格式（公历年 + 543）。
+  - **单位自动换算**：封禁时长超过 1 年（365天）自动由“天”单位转为“年”单位展示。
+- **📊 数据可视化**：自动统计封禁原因占比、时长分布，并提供前 30 条数据的详细预览。
+- **⚙️ 高度可配置**：
+  - 自定义 TXT 分隔符（默认为 `|`）。
+  - 可配置公告名单显示行数（默认 50 行，防止公告过长导致社交平台截断）。
+  - 内置翻译词典（Glossary），支持封禁原因的自动映射翻译。
 
-**Prerequisites:**  Node.js
+## 🛠️ 技术栈
+- **框架**: React 19 (ES Modules)
+- **样式**: Tailwind CSS (Glassmorphism 磨砂玻璃设计)
+- **图标**: FontAwesome 6.4
+- **处理引擎**: 原生 FileReader API & Map 结构去重
 
+## 📥 快速开始
+1. **部署**: 项目为单页面 Web 应用，可直接部署在 GitHub Pages, Vercel 或 Cloudflare Pages 上。
+2. **使用**: 
+   - 准备格式为 `UID|昵称|策略号|时长(秒)|原因|时间` 的 TXT 文件。
+   - 点击“数据源”区域上传文件。
+   - 点击“执行分析”。
+   - 在“公告生成器”中选择目标语言并复制。
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 📂 核心逻辑摘要 (Prompt Summary)
+如果您需要使用 AI 进行迭代，可以参考以下核心逻辑：
+1. **去重规则**：以 UID 为 Key。若冲突，保留 `duration` 数值更大者。
+2. **日期处理**：泰语环境下，年份显示需 `+543`。
+3. **单位处理**：`if (days >= 365) display = floor(days/365) + 'y'`。
+4. **排版对齐**：使用等宽字体，通过 `padEnd` 模拟表格列对齐。
+
+## 🤝 维护说明
+- **添加新语言**: 在 `index.tsx` 的 `translations` 对象中增加键值，并在 `announcementText` 的模板映射中添加新逻辑。
+- **调整对齐宽度**: 修改公告生成逻辑中的 `pad(str, 20)` 参数以适应不同平台的排版宽度需求。
+
+## 📄 开源协议
+MIT License.
