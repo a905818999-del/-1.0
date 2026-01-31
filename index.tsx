@@ -11,6 +11,7 @@ const translations = {
     subtitle: "支持多格式识别与泰语佛历换算",
     fixNotice: "已更新泰语公告模板与佛历日期逻辑",
     settings: "设置",
+    instructions: "使用说明",
     exportCsv: "导出 CSV",
     dataSource: "数据源",
     clickToUpload: "点击上传 TXT 或 CSV 文件",
@@ -67,6 +68,24 @@ const translations = {
       "7d": "7天",
       "30d": "1个月",
       "mid": "长期"
+    },
+    help: {
+      step1: "1. 数据上传",
+      step1Desc: "拖拽或点击上方区域上传 TXT 或 CSV 文件。系统支持标准格式：UID|昵称|策略号|时长|原因|时间。",
+      step2: "2. 自动去重",
+      step2Desc: "点击‘执行分析’。若同一 UID 出现在多个文件中，系统将自动保留封禁时长最重（秒数最大）的一条，确保公告精准。",
+      step3: "3. 预览与配置",
+      step3Desc: "在‘数据预览’页签查看数据分布。点击右上方‘设置’，您可以自定义公告显示名单的条数（默认50行）以及导出的 CSV 字段。",
+      step4: "4. 专用词典 (个性化)",
+      step4Desc: "执行分析后，系统会自动提取所有封禁原因。在‘设置-专用词典’中，您可以为‘全图透视’等原因配置各语种的专业翻译，生成公告时会自动替换。",
+      step5: "5. 公告一键生成",
+      step5Desc: "在‘公告生成器’选择语种。针对泰语环境，系统会自动将年份换算为佛历 (+543)，并将超长封禁自动转换为‘年’单位展示。",
+      feature1: "多维去重",
+      feature1Desc: "跨文件、跨策略自动识别，优先保留严重处罚。",
+      feature2: "本地化适配",
+      feature2Desc: "泰语佛历自动换算，满足海外运营排版需求。",
+      feature3: "动态词典",
+      feature3Desc: "自动提取封禁原因，支持多语言映射，免去反复手动翻译。"
     }
   },
   en: {
@@ -74,6 +93,7 @@ const translations = {
     subtitle: "Hybrid Support & Buddhist Calendar",
     fixNotice: "Updated Thai template and Buddhist year logic",
     settings: "Settings",
+    instructions: "How to Use",
     exportCsv: "Export CSV",
     dataSource: "Data Source",
     clickToUpload: "Upload TXT or CSV files",
@@ -130,6 +150,24 @@ const translations = {
       "7d": "7d",
       "30d": "30d",
       "mid": "Long-term"
+    },
+    help: {
+      step1: "1. Data Upload",
+      step1Desc: "Upload TXT/CSV files. Standard format: UID|Nick|Strategy|Duration|Reason|Date.",
+      step2: "2. Auto Deduplication",
+      step2Desc: "Click 'Run Analysis'. The system merges records by UID, keeping the most severe penalty automatically.",
+      step3: "3. Preview & Config",
+      step3Desc: "Check data distribution in 'Preview'. Adjust list length or CSV columns in 'Settings'.",
+      step4: "4. Glossary (Custom)",
+      step4Desc: "Unknown reasons are auto-extracted. Map 'Map Hack' to specific languages in 'Settings > Glossary' for professional output.",
+      step5: "5. Gen Announcement",
+      step5Desc: "Select language. Thai templates auto-convert to Buddhist year (+543) and years display units.",
+      feature1: "Smart Merging",
+      feature1Desc: "Cross-file UID recognition prioritizing severe penalties.",
+      feature2: "Local Adaption",
+      feature2Desc: "Buddhist calendar and local time formats for SEA markets.",
+      feature3: "Dynamic Glossary",
+      feature3Desc: "Auto-extract reasons and translate once for all future reports."
     }
   }
 };
@@ -181,7 +219,6 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('ban_tool_settings');
     const parsed = saved ? JSON.parse(saved) : DEFAULT_SETTINGS;
-    // Backwards compatibility for new field
     if (parsed.announcementListLimit === undefined) {
       parsed.announcementListLimit = 50;
     }
@@ -193,6 +230,7 @@ const App: React.FC = () => {
   const [processedData, setProcessedData] = useState<BanRecord[]>([]);
   const [stats, setStats] = useState({ totalLines: 0, validRecords: 0, uniqueUids: 0, removedCount: 0, dateRange: { start: '', end: '' }, strategyCount: 0 });
   const [showSettings, setShowSettings] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [activeTab, setActiveTab] = useState<'preview' | 'announcement'>('preview');
   const [targetLang, setTargetLang] = useState<'tw' | 'th' | 'vn' | 'en'>('th');
   
@@ -219,27 +257,18 @@ const App: React.FC = () => {
     return entry[targetLang] || rawReason;
   };
 
-  /**
-   * Helper to format duration based on year unit conversion
-   */
   const formatDurationDisplay = (durationSeconds: number, currentTargetLang: 'tw' | 'th' | 'vn' | 'en') => {
     const totalDays = Math.floor(durationSeconds / 86400);
     if (totalDays >= 365) {
       const years = Math.floor(totalDays / 365);
       const yearSuffix: Record<string, string> = {
-        tw: '年',
-        th: ' ปี',
-        vn: ' năm',
-        en: 'y'
+        tw: '年', th: ' ปี', vn: ' năm', en: 'y'
       };
       return `${years}${yearSuffix[currentTargetLang] || 'y'}`;
     }
     return totalDays.toString();
   };
 
-  /**
-   * 泰语佛历日期转换 (佛历年 = 公历年 + 543)
-   */
   const getThaiBuddhistDate = (dateStr: string) => {
     if (!dateStr) return '';
     const months = [
@@ -254,9 +283,7 @@ const App: React.FC = () => {
       const month = months[d.getMonth()];
       const year = d.getFullYear() + 543;
       return `${day} ${month} ${year}`;
-    } catch {
-      return dateStr;
-    }
+    } catch { return dateStr; }
   };
 
   const formatDisplayDate = (dateStr: string) => {
@@ -280,15 +307,11 @@ const App: React.FC = () => {
         const content = e.target?.result as string;
         const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
         totalLineCount += lines.length;
-
         if (lines.length === 0) { resolve(); return; }
-
         const firstLine = lines[0].toLowerCase();
         const isOfficialCsv = firstLine.includes('tcid') && (firstLine.includes('startdate') || firstLine.includes('raw'));
-
         lines.forEach((line, index) => {
           if (isOfficialCsv && index === 0) return;
-
           if (isOfficialCsv) {
             const parts = line.split(/\t|,/).map(p => p.trim());
             if (parts.length >= 9) {
@@ -298,25 +321,17 @@ const App: React.FC = () => {
               const uid = parts[4];
               const rawReason = parts[8];
               const sourceInfo = parts[9];
-
               try {
                 const start = new Date(startDateStr);
                 const end = new Date(endDateStr);
                 const durationSeconds = Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000));
                 const finalReason = rawReason && rawReason.length > 0 ? rawReason : sourceInfo;
-
                 allValidRecords.push({
-                  uid,
-                  nickname: "N/A",
-                  strategyId,
-                  duration: durationSeconds,
+                  uid, nickname: "N/A", strategyId, duration: durationSeconds,
                   durationDays: Math.floor(durationSeconds / 86400).toString(),
-                  reason: finalReason || "Unknown",
-                  banTime: startDateStr.split('.')[0].replace('T', ' ')
+                  reason: finalReason || "Unknown", banTime: startDateStr.split('.')[0].replace('T', ' ')
                 });
-              } catch (err) {
-                console.warn("Invalid date in CSV line:", line);
-              }
+              } catch (err) {}
             }
           } else {
             const parts = line.split(settings.inputSeparator).map(p => p.trim());
@@ -416,43 +431,27 @@ const App: React.FC = () => {
 
   const announcementText = useMemo(() => {
     if (processedData.length === 0) return "";
-    
     const sDate = formatDisplayDate(stats.dateRange.start);
     const eDate = formatDisplayDate(stats.dateRange.end);
     const sDateTh = getThaiBuddhistDate(stats.dateRange.start);
     const eDateTh = getThaiBuddhistDate(stats.dateRange.end);
-    
-    // Header terms
-    const headers = translations[lang].tableHeaders;
-    const hNick = targetLang === 'th' ? "ชื่อผู้เล่น" : headers.nickname;
-    const hReason = targetLang === 'th' ? "ข้อหา" : headers.reason;
-    const hDur = targetLang === 'th' ? "ระยะเวลาการแบน" : headers.duration;
-
-    // Helper to pad strings for visual alignment
-    const pad = (str: string, length: number) => {
-        let s = str || "";
-        // Naive visible length estimate
-        return s.padEnd(length, ' ');
-    };
-
-    // Generate Example Table Rows
-    const exampleRecords = processedData.slice(0, settings.announcementListLimit); // Use configurable limit
+    const pad = (str: string, length: number) => (str || "").padEnd(length, ' ');
+    const displayedCount = Math.min(stats.uniqueUids, settings.announcementListLimit);
+    const remainingCount = stats.uniqueUids - displayedCount;
+    const exampleRecords = processedData.slice(0, settings.announcementListLimit);
     let tableRows = exampleRecords.map(r => {
         const trReason = translateReason(r.reason);
         const displayDur = formatDurationDisplay(r.duration, targetLang);
         return `${pad(r.nickname, 20)} ${pad(trReason, 20)} ${displayDur}`;
     }).join('\n');
-
     const footerUrl = "https://toxicmanagement.rov.garena.in.th/";
     const footerLinkText = translations[lang].footerLinkText;
-
     const templates: Record<string, string> = {
       tw: `處罰公告：針對違規玩家的處罰清單 (${sDate} - ${eDate})\n本次共計封鎖 ${stats.uniqueUids} 個帳號。\n\n${pad("角色昵稱", 20)} ${pad("处罚原因", 20)} 封禁时长\n${"-".repeat(50)}\n${tableRows}\n\n${footerLinkText}\n${footerUrl}`,
-      th: `ประกาศลงโทษแบนผู้เล่นที่ทำผิดกฎ ตั้งแต่วันที่ ${sDateTh} ถึง ${eDateTh} - ${stats.uniqueUids} ไอดี\n\n${pad("ชื่อผู้เล่น", 20)} ${pad("ข้อหา", 20)} ระยะเวลาการแบน\n${"-".repeat(50)}\n${tableRows}\n\nรายละเอียดเพิ่มเติมคลิก:\n${footerUrl}`,
+      th: `ประกาศลงโทษแบนผู้เล่นที่ทำผิดกฎ ตั้งแต่วันที่ ${sDateTh} ถึง ${eDateTh} - ${stats.uniqueUids} ไอดี\n\n${pad("ชื่อผู้เล่น", 20)} ${pad("ข้อหา", 20)} ระยะเวลาการแบน\n${"-".repeat(50)}\n${tableRows}\n\nและอีก ${remainingCount} คนที่ถูกแบน สามารถตรวจสอบรายละเอียดเพิ่มเติมได้ที่:\n${footerUrl}`,
       vn: `Thông báo xử phạt người chơi vi phạm từ ngày ${sDate} đến ${eDate} - ${stats.uniqueUids} tài khoản\n\n${pad("Tên người chơi", 20)} ${pad("Lý do", 20)} Ngày khóa\n${"-".repeat(50)}\n${tableRows}\n\n${footerLinkText}\n${footerUrl}`,
       en: `Penalty Announcement: Ban list from ${sDate} to ${eDate} - Total ${stats.uniqueUids} IDs\n\n${pad("Player Name", 20)} ${pad("Offense", 20)} Ban Duration\n${"-".repeat(50)}\n${tableRows}\n\n${footerLinkText}\n${footerUrl}`
     };
-
     return templates[targetLang] || templates['en'];
   }, [processedData, stats, targetLang, settings.glossary, lang, settings.announcementListLimit]);
 
@@ -475,30 +474,104 @@ const App: React.FC = () => {
     next[idx] = { ...next[idx], [field]: val };
     setSettings(prev => ({ ...prev, glossary: next }));
   };
-
-  const addGlossary = () => {
-    setSettings(prev => ({ ...prev, glossary: [{ key: '', tw: '', th: '', vn: '', en: '' }, ...prev.glossary] }));
-  };
-
-  const removeGlossary = (idx: number) => {
-    setSettings(prev => ({ ...prev, glossary: prev.glossary.filter((_, i) => i !== idx) }));
-  };
+  const addGlossary = () => setSettings(prev => ({ ...prev, glossary: [{ key: '', tw: '', th: '', vn: '', en: '' }, ...prev.glossary] }));
+  const removeGlossary = (idx: number) => setSettings(prev => ({ ...prev, glossary: prev.glossary.filter((_, i) => i !== idx) }));
 
   return (
-    <div className="min-h-screen p-4 md:p-8 flex flex-col gap-6 max-w-7xl mx-auto overflow-x-hidden">
+    <div className="min-h-screen p-4 md:p-8 flex flex-col gap-6 max-w-7xl mx-auto overflow-x-hidden relative">
       <header className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-800/50 p-6 rounded-2xl border border-slate-700 glass-card shadow-2xl">
-        <div className="text-center md:text-left">
-          <div className="flex items-center justify-center md:justify-start gap-3">
+        <div className="flex flex-col md:flex-row items-center gap-6">
+          <div className="text-center md:text-left">
             <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">{t('title')}</h1>
-            <button onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} className="px-2 py-1 bg-slate-700/50 rounded border border-slate-600 text-[10px] font-bold text-slate-400 uppercase tracking-tighter transition-all hover:bg-slate-600/50">{t('langToggle')}</button>
+            <p className="text-slate-400 text-sm mt-1">{t('subtitle')} <span className="text-emerald-500/80 font-mono ml-2">V3.1</span></p>
           </div>
-          <p className="text-slate-400 text-sm mt-1">{t('subtitle')} <span className="text-emerald-500/80 font-mono ml-2">V3.1</span></p>
+          
+          <div className="flex items-center gap-1 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/50 shadow-inner">
+            <button 
+              onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} 
+              className="px-3 py-1.5 hover:bg-slate-800 rounded-xl text-[10px] font-bold text-slate-400 uppercase tracking-tighter transition-all border border-transparent hover:border-slate-600"
+            >
+              {t('langToggle')}
+            </button>
+            <div className="w-[1px] h-4 bg-slate-700 mx-1"></div>
+            <button 
+              onClick={() => setShowHelp(true)}
+              className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-xs font-bold text-slate-200 transition-all flex items-center gap-2"
+            >
+              <i className="fa-solid fa-circle-question text-blue-400"></i> {t('instructions')}
+            </button>
+          </div>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowSettings(!showSettings)} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors flex items-center gap-2 text-sm border border-slate-600/50 shadow-lg"><i className="fa-solid fa-gear"></i> {t('settings')}</button>
           <button onClick={exportToCSV} disabled={processedData.length === 0} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 text-sm shadow-lg shadow-blue-900/40"><i className="fa-solid fa-file-export"></i> {t('exportCsv')}</button>
         </div>
       </header>
+
+      {/* Instructions Modal */}
+      {showHelp && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
+          <div className="glass-card w-full max-w-3xl rounded-3xl overflow-hidden shadow-2xl flex flex-col border border-slate-700 max-h-[90vh]">
+            <div className="px-8 py-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/40">
+              <h2 className="text-xl font-bold flex items-center gap-3"><i className="fa-solid fa-book-open text-blue-400"></i> {t('instructions')}</h2>
+              <button onClick={() => setShowHelp(false)} className="text-slate-400 hover:text-white transition-colors"><i className="fa-solid fa-xmark text-2xl"></i></button>
+            </div>
+            <div className="p-8 overflow-y-auto custom-scrollbar flex flex-col gap-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> {t('help.step1')}</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed pl-4 border-l border-slate-800">{t('help.step1Desc')}</p>
+                </div>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> {t('help.step2')}</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed pl-4 border-l border-slate-800">{t('help.step2Desc')}</p>
+                </div>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-blue-400"></div> {t('help.step3')}</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed pl-4 border-l border-slate-800">{t('help.step3Desc')}</p>
+                </div>
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div> {t('help.step4')}</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed pl-4 border-l border-amber-900/30 font-medium">{t('help.step4Desc')}</p>
+                </div>
+                <div className="space-y-4 md:col-span-2">
+                  <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div> {t('help.step5')}</h3>
+                  <p className="text-xs text-slate-400 leading-relaxed pl-4 border-l border-emerald-900/30">{t('help.step5Desc')}</p>
+                </div>
+              </div>
+              <div className="border-t border-slate-800 pt-8 space-y-6">
+                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2"><i className="fa-solid fa-star text-amber-400"></i> 主要功能特性</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-3 p-5 bg-slate-900/50 rounded-2xl border border-slate-800/50 hover:border-slate-700 transition-colors">
+                    <i className="fa-solid fa-clone text-2xl text-blue-400"></i>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200 mb-1">{t('help.feature1')}</h4>
+                      <p className="text-[10px] text-slate-500 leading-normal">{t('help.feature1Desc')}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 p-5 bg-slate-900/50 rounded-2xl border border-slate-800/50 hover:border-slate-700 transition-colors">
+                    <i className="fa-solid fa-calendar-days text-2xl text-emerald-400"></i>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200 mb-1">{t('help.feature2')}</h4>
+                      <p className="text-[10px] text-slate-500 leading-normal">{t('help.feature2Desc')}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-3 p-5 bg-slate-900/50 rounded-2xl border border-slate-800/50 hover:border-slate-700 transition-colors">
+                    <i className="fa-solid fa-book-atlas text-2xl text-amber-400"></i>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200 mb-1">{t('help.feature3')}</h4>
+                      <p className="text-[10px] text-slate-500 leading-normal">{t('help.feature3Desc')}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-800/40 border-t border-slate-700 text-center">
+              <button onClick={() => setShowHelp(false)} className="px-12 py-3 bg-indigo-600 rounded-xl font-bold text-sm shadow-xl hover:bg-indigo-500 active:scale-95 transition-all text-white">{t('done')}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 flex flex-col gap-6">
@@ -516,7 +589,7 @@ const App: React.FC = () => {
                 {files.map((f, i) => <div key={i} className="flex justify-between border-b border-slate-800 last:border-0 py-1"><span>{f.name}</span><span>{(f.size/1024).toFixed(0)}K</span></div>)}
               </div>
             )}
-            <button onClick={processFiles} disabled={files.length === 0 || isProcessing} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold disabled:opacity-50 transition-all flex justify-center items-center gap-2 shadow-lg shadow-indigo-900/20 active:scale-95">
+            <button onClick={processFiles} disabled={files.length === 0 || isProcessing} className="w-full py-3 bg-indigo-600 rounded-xl font-bold disabled:opacity-50 transition-all flex justify-center items-center gap-2 shadow-lg shadow-indigo-900/20 active:scale-95">
               {isProcessing ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-bolt"></i>} {t('executeAnalysis')}
             </button>
           </div>
@@ -547,7 +620,6 @@ const App: React.FC = () => {
                 <h2 className="text-xl font-semibold flex items-center gap-2"><i className="fa-solid fa-sliders text-amber-400"></i> {t('config')}</h2>
                 <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-white transition-colors"><i className="fa-solid fa-xmark text-xl"></i></button>
               </div>
-              
               <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
@@ -568,7 +640,6 @@ const App: React.FC = () => {
                       </select>
                     </div>
                   </div>
-
                   <div className="space-y-4">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-700 pb-2">{t('exportColumns')}</h3>
                     <div className="grid grid-cols-2 gap-2">
@@ -584,7 +655,6 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-
                 <div className="space-y-4 pt-4 border-t border-slate-700">
                   <div className="flex justify-between items-center sticky top-0 bg-slate-800/90 backdrop-blur-lg p-2 rounded-lg z-20 border border-slate-700/50">
                     <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('glossary')}</h3>
@@ -631,7 +701,6 @@ const App: React.FC = () => {
                   {activeTab === 'announcement' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-400 shadow-[0_0_8px_rgba(129,140,248,0.5)]"></div>}
                 </button>
               </div>
-
               <div className="flex-1 overflow-hidden relative bg-slate-900/20">
                 {activeTab === 'preview' ? (
                   <div className="absolute inset-0 flex flex-col p-4 gap-6 overflow-y-auto custom-scrollbar pb-12">
@@ -667,7 +736,6 @@ const App: React.FC = () => {
                             </div>
                           </div>
                         </div>
-
                         <div className="border border-slate-800 rounded-2xl bg-slate-950/40 overflow-hidden flex flex-col flex-1 shrink-0 shadow-2xl">
                            <div className="px-5 py-3 bg-slate-800/40 border-b border-slate-800 flex justify-between items-center shrink-0">
                              <div className="flex items-center gap-2">
