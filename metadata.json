@@ -1,0 +1,5 @@
+{
+  "description": "A high-performance file processing tool for merging ban record text files with UID deduplication and custom sorting.",
+  "requestFramePermissions": [],
+  "name": "App"
+}
